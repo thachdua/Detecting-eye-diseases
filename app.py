@@ -1,20 +1,32 @@
 import streamlit as st
 import tensorflow as tf
-import tf_keras as keras
-from tf_keras.applications.mobilenet_v3 import preprocess_input
+from tensorflow import keras
+from tensorflow.keras.applications.mobilenet_v3 import preprocess_input
 import numpy as np
-from recommendation import cnv,dme,drusen,normal
+from recommendation import cnv, dme, drusen, normal
 import tempfile
+MODEL_PATH = "Trained_Model.h5"
 
-#Tensorflow Model Prediction
-def model_prediction(test_image_path):
-    model = keras.models.load_model("Trained_Model.h5", compile=False)
+
+@st.cache_resource(show_spinner=False)
+def _load_trained_model():
+    try:
+        return keras.models.load_model(MODEL_PATH, compile=False)
+    except (ValueError, TypeError) as exc:  # pragma: no cover - defensive guard for cloud envs
+        raise RuntimeError(
+            "Không thể tải mô hình đã huấn luyện. Hãy chắc chắn rằng môi trường đang sử dụng TensorFlow 2.12 (hoặc thấp hơn) "
+            "và không cài đặt gói `keras` độc lập."
+        ) from exc
+
+
+def model_prediction(test_image_path: str) -> int:
+    model = _load_trained_model()
     img = tf.keras.utils.load_img(test_image_path, target_size=(224, 224))
     x = tf.keras.utils.img_to_array(img)
     x = np.expand_dims(x, axis=0)
     x = preprocess_input(x)
     predictions = model.predict(x)
-    return np.argmax(predictions) #return index of max element
+    return int(np.argmax(predictions))  # return index of max element
 
 #Sidebar
 st.sidebar.title("Dashboard")
@@ -116,49 +128,53 @@ elif(app_mode=="About"):
 elif(app_mode=="Disease Identification"):
     st.header("Welcome to the Retinal OCT Analysis Platform")
     test_image = st.file_uploader("Upload your Image:")
+    uploaded_bytes = None
+    temp_file_path = None
     if test_image is not None:
-        # Save to a temporary file and get its path
+        uploaded_bytes = test_image.read()
         with tempfile.NamedTemporaryFile(delete=False, suffix=test_image.name) as tmp_file:
-            tmp_file.write(test_image.read())
+            tmp_file.write(uploaded_bytes)
             temp_file_path = tmp_file.name
-    #Predict button
-    if(st.button("Predict")) and test_image is not None:
-        with st.spinner("Please Wait.."):
-            result_index = model_prediction(temp_file_path)
-            #Reading Labels
-            class_name = ['CNV', 'DME', 'DRUSEN', 'NORMAL']
-        st.success("Model is Predicting it's a {}".format(class_name[result_index]))
 
-        #Recommendation
-        with st.expander("Learn More"):
-            #CNV
-            if(result_index==0):
-                st.write('''
-                    OCT scan showing *CNV with subretinal fluid.*
-                ''')
-                st.image(test_image)
-                st.markdown(cnv)
-        
-            #DME
-            elif(result_index==1):
-                st.write('''
-                    OCT scan showing *DME with retinal thickening and intraretinal fluid.*
-                ''')
-                st.image(test_image)
-                st.markdown(dme)
+    if st.button("Predict"):
+        if temp_file_path is None:
+            st.warning("Vui lòng tải ảnh OCT trước khi dự đoán.")
+        else:
+            try:
+                with st.spinner("Please Wait.."):
+                    result_index = model_prediction(temp_file_path)
+                class_name = ['CNV', 'DME', 'DRUSEN', 'NORMAL']
+                st.success(f"Model is Predicting it's a {class_name[result_index]}")
 
-            #DRUSEN
-            elif(result_index==2):
-                st.write('''
-                    OCT scan showing *drusen deposits in early AMD.*
-                ''')
-                st.image(test_image)
-                st.markdown(drusen)
-                
-            #NORMAL
-            elif(result_index==3):
-                st.write('''
-                    OCT scan showing a *normal retina with preserved foveal contour.*
-                ''')
-                st.image(test_image)
-                st.markdown(normal)
+                # Recommendation
+                with st.expander("Learn More"):
+                    if uploaded_bytes is not None:
+                        st.image(uploaded_bytes)
+
+                    descriptions = [
+                        (
+                            "OCT scan showing *CNV with subretinal fluid.*",
+                            cnv,
+                        ),
+                        (
+                            "OCT scan showing *DME with retinal thickening and intraretinal fluid.*",
+                            dme,
+                        ),
+                        (
+                            "OCT scan showing *drusen deposits in early AMD.*",
+                            drusen,
+                        ),
+                        (
+                            "OCT scan showing a *normal retina with preserved foveal contour.*",
+                            normal,
+                        ),
+                    ]
+                    summary_text, recommendation = descriptions[result_index]
+                    st.write(summary_text)
+                    st.markdown(recommendation)
+            except RuntimeError as err:
+                st.error(str(err))
+            except Exception as err:  # pragma: no cover - Streamlit debug helper
+                st.error("Đã xảy ra lỗi khi chạy mô hình.")
+                st.exception(err)
+
