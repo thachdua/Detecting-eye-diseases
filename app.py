@@ -1,7 +1,7 @@
 import streamlit as st
 import tensorflow as tf
-import tf_keras as keras
-from tf_keras.applications.mobilenet_v3 import preprocess_input
+from tensorflow import keras
+from tensorflow.keras.applications.mobilenet_v3 import preprocess_input
 import numpy as np
 from recommendation import cnv,dme,drusen,normal
 import tempfile
