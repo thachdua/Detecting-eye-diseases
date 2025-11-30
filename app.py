@@ -1,35 +1,32 @@
 import streamlit as st
 import tensorflow as tf
-# Sử dụng preprocess_input của EfficientNet thay vì MobileNetV3
-from tensorflow.keras.applications.efficientnet import preprocess_input
+from tensorflow.keras.applications.mobilenet_v3 import preprocess_input 
 import numpy as np
 from recommendation import cnv, dme, drusen, normal
 import tempfile
 
-# Đảm bảo tên file đúng với file bạn đã upload lên GitHub (đuôi .keras)
-MODEL_PATH = "Trained_Model_EfficientNetV2B0.h5"
+MODEL_PATH = "Trained_Model.h5"
+
 
 @st.cache_resource(show_spinner=False)
 def _load_trained_model():
     try:
-        # Sử dụng trực tiếp tf.keras.models để tránh xung đột
         return tf.keras.models.load_model(MODEL_PATH, compile=False)
-    except (ValueError, TypeError) as exc:  # pragma: no cover - defensive guard for cloud envs
+    except (ValueError, TypeError) as exc:
         raise RuntimeError(
-            "Không thể tải mô hình đã huấn luyện. Hãy chắc chắn rằng file .keras đã được upload (có thể cần Git LFS) "
-            "và môi trường không cài đặt gói `keras` độc lập."
+            "Không thể tải mô hình đã huấn luyện. Hãy chắc chắn rằng tệp mô hình có tên là "
+            "Trained_Model.h5 đã được tải lên thành công (có thể cần Git LFS)."
         ) from exc
+
 
 def model_prediction(test_image_path: str) -> int:
     model = _load_trained_model()
-    # Load ảnh với kích thước 224x224 (kích thước chuẩn của EfficientNetB0/V2B0)
-    img = tf.keras.utils.load_img(test_image_path, target_size=(224, 224))
+    # Kích thước chuẩn cho MobileNet thường là 224x224
+    img = tf.keras.utils.load_img(test_image_path, target_size=(224, 224)) 
     x = tf.keras.utils.img_to_array(img)
     x = np.expand_dims(x, axis=0)
-    
-    # Sử dụng hàm tiền xử lý đúng của EfficientNet
+    # Sử dụng hàm tiền xử lý đúng của MobileNetV3 (chuẩn hóa về [-1, 1])
     x = preprocess_input(x)
-    
     predictions = model.predict(x)
     return int(np.argmax(predictions))  # return index of max element
 
