@@ -1,41 +1,44 @@
 import streamlit as st
 import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras.applications.mobilenet_v3 import preprocess_input
+# Sử dụng preprocess_input của EfficientNet thay vì MobileNetV3
+from tensorflow.keras.applications.efficientnet import preprocess_input
 import numpy as np
 from recommendation import cnv, dme, drusen, normal
 import tempfile
-MODEL_PATH = "Trained_Model_EfficientNetV2B0.keras"
 
+# Đảm bảo tên file đúng với file bạn đã upload lên GitHub (đuôi .keras)
+MODEL_PATH = "Trained_Model_EfficientNetV2B0.keras"
 
 @st.cache_resource(show_spinner=False)
 def _load_trained_model():
     try:
-        return keras.models.load_model(MODEL_PATH, compile=False)
+        # Sử dụng trực tiếp tf.keras.models để tránh xung đột
+        return tf.keras.models.load_model(MODEL_PATH, compile=False)
     except (ValueError, TypeError) as exc:  # pragma: no cover - defensive guard for cloud envs
         raise RuntimeError(
-            "Không thể tải mô hình đã huấn luyện. Hãy chắc chắn rằng môi trường đang sử dụng TensorFlow 2.12 (hoặc thấp hơn) "
-            "và không cài đặt gói `keras` độc lập."
+            "Không thể tải mô hình đã huấn luyện. Hãy chắc chắn rằng file .keras đã được upload (có thể cần Git LFS) "
+            "và môi trường không cài đặt gói `keras` độc lập."
         ) from exc
-
 
 def model_prediction(test_image_path: str) -> int:
     model = _load_trained_model()
+    # Load ảnh với kích thước 224x224 (kích thước chuẩn của EfficientNetB0/V2B0)
     img = tf.keras.utils.load_img(test_image_path, target_size=(224, 224))
     x = tf.keras.utils.img_to_array(img)
     x = np.expand_dims(x, axis=0)
+    
+    # Sử dụng hàm tiền xử lý đúng của EfficientNet
     x = preprocess_input(x)
+    
     predictions = model.predict(x)
     return int(np.argmax(predictions))  # return index of max element
 
 #Sidebar
 st.sidebar.title("Dashboard")
-app_mode = st.sidebar.selectbox("Select Page",["Home","About","Disease Identification"])
+app_mode = st.sidebar.selectbox("Select Page", ["Home", "About", "Disease Identification"])
 
 #Main Page
-if(app_mode=="Home"):
-    # image_path = "home_page.jpeg"
-    # st.image(image_path,use_column_width=True)
+if(app_mode == "Home"):
     st.markdown("""
     ## **OCT Retinal Analysis Platform**
 
@@ -99,7 +102,7 @@ Have questions or need assistance? [Contact our support team](#) for more inform
     """)
 
 #About Project
-elif(app_mode=="About"):
+elif(app_mode == "About"):
     st.header("About")
     st.markdown("""
                 #### About Dataset
@@ -125,7 +128,7 @@ elif(app_mode=="About"):
                 """)
 
 #Prediction Page
-elif(app_mode=="Disease Identification"):
+elif(app_mode == "Disease Identification"):
     st.header("Welcome to the Retinal OCT Analysis Platform")
     test_image = st.file_uploader("Upload your Image:")
     uploaded_bytes = None
@@ -177,4 +180,3 @@ elif(app_mode=="Disease Identification"):
             except Exception as err:  # pragma: no cover - Streamlit debug helper
                 st.error("Đã xảy ra lỗi khi chạy mô hình.")
                 st.exception(err)
-
