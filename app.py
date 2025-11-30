@@ -7,7 +7,7 @@ from recommendation import cnv, dme, drusen, normal
 import tempfile
 
 # Đảm bảo tên file đúng với file bạn đã upload lên GitHub (đuôi .keras)
-MODEL_PATH = "Trained_Model_EfficientNetV2B0.keras"
+MODEL_PATH = "Trained_Model_EfficientNetV2B0.h5"
 
 @st.cache_resource(show_spinner=False)
 def _load_trained_model():
