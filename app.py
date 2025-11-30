@@ -5,7 +5,7 @@ from tensorflow.keras.applications.mobilenet_v3 import preprocess_input
 import numpy as np
 from recommendation import cnv, dme, drusen, normal
 import tempfile
-MODEL_PATH = "Trained_Model.h5"
+MODEL_PATH = "Trained_Model_EfficientNetV2B0.keras"
 
 
 @st.cache_resource(show_spinner=False)
